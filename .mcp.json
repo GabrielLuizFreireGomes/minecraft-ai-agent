@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "minecraft-agent": {
+      "command": "node",
+      "args": ["mcp/server.js"]
+    }
+  }
+}

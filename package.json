@@ -1,0 +1,24 @@
+{
+  "name": "minecraft-ai-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agente autônomo de Minecraft (Mineflayer 26.2) com memória Obsidian e controle via MCP",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "postinstall": "node scripts/patch-mcdata.js",
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "mcp": "node --env-file-if-exists=.env mcp/server.js",
+    "test:offline": "node --env-file-if-exists=.env test/offline.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "minecraft-data": "^3.117.0",
+    "mineflayer": "^4.39.0",
+    "mineflayer-collectblock": "^1.6.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "mineflayer-tool": "^1.2.0",
+    "prismarine-nbt": "^2.8.0",
+    "zod": "^4.6.7"
+  }
+}

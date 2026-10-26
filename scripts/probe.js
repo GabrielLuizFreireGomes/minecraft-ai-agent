@@ -1,0 +1,11 @@
+// Sonda: verifica online-mode/protocolo sem ficar no servidor.
+require('../src/compat')
+const mc = require('minecraft-protocol')
+const c = mc.createClient({ host: process.argv[2] || 'caiosujinho.jogar.io', username: 'NapoLtz', auth: 'offline', version: '26.2' })
+c.on('state', s => console.log('state', s))
+c.on('login', () => { console.log('LOGIN OK (offline-mode)'); c.end() })
+c.on('kick_disconnect', p => console.log('kick', JSON.stringify(p).slice(0, 300)))
+c.on('disconnect', p => console.log('disconnect', JSON.stringify(p).slice(0, 300)))
+c.on('error', e => console.log('error', e.message))
+c.on('end', r => { console.log('end', r); process.exit(0) })
+setTimeout(() => { console.log('timeout'); process.exit(0) }, 15000)

@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NapoLtz · agente ao vivo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' transform='rotate(45 8 8)' fill='%2335d07f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground: #101311;
+    --panel: #151916;
+    --line: #252b27;
+    --text: #dfe4dd;
+    --muted: #a6aea6;
+    --faint: #8a928a;
+    --emerald: #35d07f;
+    --emerald-ink: #06210f;
+    --danger: #ff5a6a;
+    --warn: #f0a940;
+    --info: #6cb6ff;
+    --r: 4px;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
+    --font: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+    --code: ui-monospace, Consolas, monospace; /* taste-skill-ignore: log literal */
+    --raise: #1b201c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--ground); color: var(--text); font: 14px/1.5 var(--font); }
+  body { min-height: 100dvh; padding: var(--s2); gap: var(--s2); display: flex; flex-direction: column; }
+  header {
+    display: flex; align-items: center; gap: var(--s4); padding: var(--s3) var(--s5);
+    background: var(--panel); border-radius: 6px; flex-wrap: wrap;
+  }
+  h1.brand { margin: 0; display: flex; align-items: baseline; gap: var(--s2); font-weight: 600; font-size: 20px; }
+  .brand .gem { width: 10px; height: 10px; background: var(--emerald); transform: rotate(45deg); display: inline-block; align-self: center; }
+  .brand small { color: var(--muted); font-weight: 400; font-size: 14px; }
+  .state { display: flex; align-items: center; gap: var(--s2); color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .dot.on { background: var(--emerald); }
+  .dot.off { background: var(--danger); }
+  .now { flex: 1; min-width: 220px; color: var(--text); }
+  .now b { color: var(--emerald); font-weight: 500; }
+  button {
+    font: inherit; font-weight: 500; min-height: 36px; padding: 0 var(--s4); border-radius: var(--r);
+    border: 0; background: var(--raise); color: var(--text); cursor: pointer;
+    transition: background-color .15s, border-color .15s;
+  }
+  button:hover { background: #242a25; }
+  button:focus-visible { outline: 2px solid var(--emerald); outline-offset: 2px; }
+  button.primary { background: var(--emerald); color: var(--emerald-ink); border-color: var(--emerald); }
+  button.primary:hover { background: #4fe196; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  main {
+    flex: 1; display: grid; gap: var(--s2);
+    grid-template-columns: minmax(0, 1fr) 400px;
+  }
+  section { background: var(--panel); border-radius: 6px; padding: var(--s4) var(--s5); }
+  h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 600; color: var(--text); display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); }
+  h2 span { font: 400 12px var(--code); color: var(--muted); }
+
+  .mapwrap { align-self: start; background: var(--panel); border-radius: 6px; display: flex; flex-direction: column; padding: var(--s4) var(--s5); min-height: 0; }
+  .mapbox { position: relative; display: grid; place-items: start center; min-height: 320px; }
+  canvas { width: min(100%, calc(100dvh - 150px)); aspect-ratio: 1; image-rendering: pixelated; border-radius: var(--r); background: #0b0d0c; }
+  .legend { display: flex; flex-wrap: wrap; gap: var(--s4); margin-top: var(--s3); color: var(--muted); font-size: 13px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
+  .empty { color: var(--faint); position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: var(--s5); }
+
+  aside { display: flex; flex-direction: column; gap: var(--s2); min-height: 0; }
+  .vitals { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3) var(--s5); }
+  .k { color: var(--muted); font-size: 13px; }
+  .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .v.small { font-size: 13px; }
+  .bar { height: 3px; background: var(--line); margin-top: 6px; border-radius: 2px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--emerald); transition: width .3s; }
+  .bar.low > div { background: var(--danger); }
+  .emeralds .v { color: var(--emerald); }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  ol.steps li { display: grid; grid-template-columns: 18px 1fr; gap: var(--s2); color: var(--faint); padding: 2px 0; }
+  ol.steps li.done { color: var(--muted); }
+  ol.steps li.done::before { content: ""; width: 7px; height: 4px; margin: 6px 0 0 2px; border: solid var(--emerald); border-width: 0 0 2px 2px; transform: rotate(-45deg); }
+  ol.steps li.cur { color: var(--text); }
+  ol.steps li.cur::before { content: "▸"; color: var(--emerald); }
+  ol.steps li:not(.done):not(.cur)::before { content: "·"; }
+
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 3px 0; border-bottom: 1px solid var(--line); }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .scroll { max-height: 190px; overflow: auto; }
+  .log { flex: 1; min-height: 160px; display: flex; flex-direction: column; border-bottom: 0; }
+  .log .scroll { flex: 1; max-height: none; min-height: 140px; }
+  .log p { margin: 0; padding: 2px 0; color: var(--muted); word-break: break-word; font: 13px/1.5 var(--code); }
+  .log p.warn { color: var(--warn); }
+  .log p.error { color: var(--danger); }
+  .log p time { color: var(--faint); margin-right: var(--s2); }
+
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ask { display: flex; gap: var(--s2); margin-bottom: var(--s3); }
+  .ask input {
+    flex: 1; min-width: 0; min-height: 36px; padding: 0 var(--s3); font: inherit; color: var(--text);
+    background: var(--ground); border: 1px solid var(--line); border-radius: var(--r); /* taste-skill-ignore: campo de formulário */
+  }
+  .ask input::placeholder { color: var(--faint); }
+  .ask input:focus-visible { outline: 2px solid var(--emerald); outline-offset: 1px; }
+  .plan { white-space: pre-wrap; color: var(--muted); font-size: 14px; max-height: 220px; overflow: auto; }
+  .plan.ready { color: var(--text); }
+  /* abas da coluna principal */
+  .tabs { display: flex; gap: var(--s1); margin-bottom: var(--s3); }
+  .tabs button { background: transparent; color: var(--muted); min-height: 40px; }
+  .tabs button { position: relative; }
+  .tabs button[aria-selected="true"] { background: var(--raise); color: var(--text); }
+  .tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: var(--s3); right: var(--s3); bottom: 0; height: 2px; background: var(--emerald); }
+  [hidden] { display: none !important; }
+
+  /* estoque */
+  .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s3) var(--s5); margin-bottom: var(--s4); }
+  .summary .v { font-size: 20px; }
+  .tools { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; margin-bottom: var(--s2); }
+  .tools input {
+    flex: 1; min-width: 160px; min-height: 40px; padding: 0 var(--s3); font: inherit; color: var(--text);
+    background: var(--ground); border: 1px solid var(--line); border-radius: var(--r); /* taste-skill-ignore: campo de formulário */
+  }
+  .tools input::placeholder { color: var(--faint); }
+  .tools input:focus-visible { outline: 2px solid var(--emerald); outline-offset: 1px; }
+  .tools button { min-height: 40px; }
+  .note { color: var(--muted); font-size: 13px; margin: 0 0 var(--s4); }
+  .stock { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--s5); align-items: start; }
+  .cat h3 { margin: 0 0 var(--s1); font-size: 13px; font-weight: 600; color: var(--text); display: flex; justify-content: space-between; }
+  .cat h3 span { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cat th { text-align: right; font-weight: 400; font-size: 12px; color: var(--faint); padding: 2px 0 2px var(--s3); }
+  .cat th:first-child { text-align: left; padding-left: 0; }
+  .cat td { padding: 4px 0; }
+  .cat td.n { padding-left: var(--s3); width: 4.4em; }
+  .cat td.n.zero { color: var(--faint); }
+  .cat td.n.all { color: var(--text); font-weight: 500; }
+  .tag { margin-left: var(--s2); font-size: 12px; color: var(--emerald); }
+  .chests { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s2); margin-top: var(--s5); }
+  .chests h3 { grid-column: 1 / -1; margin: 0; font-size: 13px; font-weight: 600; }
+  .chest { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s3); padding: var(--s3); background: var(--raise); border-radius: var(--r); }
+  .chest b { font-weight: 500; }
+  .chest .meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .chest .age { text-align: right; color: var(--muted); font-size: 13px; }
+  .chest .age.old { color: var(--warn); }
+  .blank { color: var(--muted); margin: 0; padding: var(--s3) 0; }
+
+  /* chat */
+  .chat .scroll { max-height: 260px; display: grid; gap: var(--s2); align-content: start; }
+  .msg { padding: 6px var(--s3); background: var(--raise); border-radius: var(--r); }
+  .msg.out { background: #13261b; }
+  .msg .who { display: flex; gap: var(--s2); align-items: baseline; font-size: 12px; color: var(--muted); }
+  .msg .who b { color: var(--info); font-weight: 500; font-size: 13px; }
+  .msg.out .who b { color: var(--emerald); }
+  .msg p { margin: 2px 0 0; word-break: break-word; }
+  .score { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .score.yes { color: var(--emerald); }
+
+  /* agora */
+  .doing { padding: var(--s4); background: var(--raise); border-radius: var(--r); margin-bottom: var(--s4); }
+  .doing p { margin: 0; }
+  .doing-main { font-size: 20px; font-weight: 600; margin-top: 2px !important; line-height: 1.3; }
+  .doing-why { color: var(--muted); margin-top: var(--s1) !important; }
+  .doing.away { background: #241f12; }
+  .doing.away .doing-main { color: var(--warn); }
+  .graves { display: grid; gap: var(--s1); padding: var(--s3) var(--s4); background: #2a1719; border-radius: var(--r); margin-bottom: var(--s4); }
+  .graves b { font-weight: 600; }
+  .graves .owner { color: var(--warn); }
+  .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 520px; overflow: auto; }
+  .timeline li { display: grid; grid-template-columns: 52px 84px minmax(0, 1fr); overflow-wrap: anywhere; gap: var(--s2); padding: 6px var(--s2); border-radius: var(--r); align-items: baseline; }
+  .timeline li:nth-child(odd) { background: #181d19; }
+  .timeline time { color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .timeline .kind { font-size: 13px; color: var(--muted); }
+  .timeline .n { color: var(--faint); font-size: 12px; margin-left: var(--s2); }
+  .kind.morte, .kind.erro { color: var(--danger); }
+  .kind.túmulo, .kind.combate, .kind.falha { color: var(--warn); }
+  .kind.etapa, .kind.craft, .kind.estoque { color: var(--emerald); }
+  .kind.noite, .kind.viagem, .kind.chat { color: var(--info); }
+  .kind.avaliador { color: #c49cff; }
+  .actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .actions button { min-height: 40px; }
+  details.log { background: var(--panel); border-radius: 6px; padding: var(--s3) var(--s5); flex: none; min-height: 0; display: block; }
+  details.log summary { cursor: pointer; font-weight: 600; min-height: 32px; display: flex; align-items: center; gap: var(--s3); }
+  details.log summary span { font: 400 12px var(--code); color: var(--muted); }
+  details.log .scroll { max-height: 260px; margin-top: var(--s2); }
+  details.log p { margin: 0; padding: 2px 0; color: var(--muted); word-break: break-word; font: 13px/1.5 var(--code); }
+  details.log p.warn { color: var(--warn); }
+  details.log p.error { color: var(--danger); }
+  details.log p time { color: var(--faint); margin-right: var(--s2); }
+
+  @media (max-width: 900px) {
+    .timeline li { grid-template-columns: 44px 72px minmax(0, 1fr); }
+    .mapwrap, aside, section { min-width: 0; }
+    main { grid-template-columns: minmax(0, 1fr); }
+    canvas { width: 100%; }
+    header { padding: var(--s3) var(--s4); }
+    body { padding: var(--s1); gap: var(--s1); }
+    section, .mapwrap { padding: var(--s4); }
+    .summary { grid-template-columns: 1fr 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 class="brand"><span class="gem" aria-hidden="true"></span>NapoLtz <small>agente ao vivo</small></h1>
+  <div class="state" role="status"><span class="dot" id="dot"></span><span id="conn">conectando…</span></div>
+  <div class="now" id="now">-</div>
+  <button id="toggle" class="primary" disabled>pausar</button>
+</header>
+<main>
+  <div class="mapwrap">
+    <div class="tabs" role="tablist" aria-label="visão principal">
+      <button role="tab" id="tabNow" aria-selected="true" aria-controls="paneNow">Agora</button>
+      <button role="tab" id="tabMap" aria-selected="false" aria-controls="paneMap">Mapa</button>
+      <button role="tab" id="tabStock" aria-selected="false" aria-controls="paneStock">Estoque</button>
+      <button role="tab" id="tabChat" aria-selected="false" aria-controls="paneChat">Chat</button>
+    </div>
+    <div id="paneNow" role="tabpanel" aria-labelledby="tabNow">
+      <div class="doing">
+        <p class="k">o que ele está fazendo</p>
+        <p class="doing-main" id="doing">-</p>
+        <p class="doing-why" id="why"></p>
+      </div>
+      <div class="graves" id="graves" hidden></div>
+      <h2>Linha do tempo <span id="evCount"></span></h2>
+      <ol class="timeline" id="events"><li class="blank">ainda sem eventos</li></ol>
+    </div>
+    <div id="paneMap" role="tabpanel" aria-labelledby="tabMap" hidden>
+    <h2>Mapa <span id="coords">-</span></h2>
+    <div class="mapbox">
+      <canvas id="map" width="512" height="512" aria-label="mapa visto de cima em volta do bot"></canvas>
+      <div class="empty" id="mapEmpty">bot offline. o mapa aparece quando ele entrar no servidor</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#ffffff"></i>bot</span>
+      <span><i style="background:var(--info)"></i>jogador</span>
+      <span><i style="background:var(--danger)"></i>hostil</span>
+      <span><i style="background:var(--emerald)"></i>aldeão</span>
+      <span><i style="background:#e7d27a"></i>item</span>
+      <span><i style="background:#9aa39a"></i>animal</span>
+    </div>
+    </div>
+    <div id="paneStock" role="tabpanel" aria-labelledby="tabStock" hidden>
+      <h2>Estoque geral <span id="stAt"></span></h2>
+      <div class="summary">
+        <div><div class="k">mochila livre</div><div class="v" id="stSlots">-</div><div class="bar" id="stSlotsBar"><div style="width:0"></div></div></div>
+        <div><div class="k">itens com o bot</div><div class="v" id="stInv">-</div></div>
+        <div><div class="k">itens guardados</div><div class="v" id="stStored">-</div></div>
+        <div><div class="k">baús conhecidos</div><div class="v" id="stChests">-</div></div>
+      </div>
+      <div class="tools">
+        <label for="stFind" class="sr">procurar item</label>
+        <input id="stFind" placeholder="procurar item (ex.: diamond, carrot)" autocomplete="off">
+        <button id="stCheck">conferir baús</button>
+      </div>
+      <p class="note" id="stNote">o bot anota o conteúdo de cada baú quando abre. conferir baús manda ele passar em todos e atualizar.</p>
+      <div class="stock" id="stock"></div>
+      <div class="chests" id="chests"></div>
+    </div>
+    <div id="paneChat" role="tabpanel" aria-labelledby="tabChat" class="chat" hidden>
+      <h2>Chat recente <span>nota: é comigo · preciso responder</span></h2>
+      <div class="scroll" id="chat" aria-live="polite"><p class="blank">sem mensagens ainda</p></div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <div class="vitals">
+        <div><div class="k">vida</div><div class="v" id="hp">-</div><div class="bar" id="hpBar"><div style="width:0"></div></div></div>
+        <div><div class="k">fome</div><div class="v" id="food">-</div><div class="bar" id="foodBar"><div style="width:0"></div></div></div>
+        <div class="emeralds"><div class="k">esmeraldas (total ganho)</div><div class="v" id="em">0</div></div>
+        <div><div class="k">hora · dimensão</div><div class="v small" id="clock">-</div></div>
+      </div>
+    </section>
+    <section>
+      <h2>Instruir <span id="goalAt"></span></h2>
+      <form class="ask" id="goalForm">
+        <label for="goal" class="sr">objetivo para o bot</label>
+        <input id="goal" name="goal" maxlength="200" placeholder="objetivo (ex.: priorizar lã pras camas)" autocomplete="off">
+        <button type="submit">definir</button>
+      </form>
+      <p class="note" id="goalNow">sem objetivo manual: segue a missão.</p>
+      <div class="actions">
+        <button data-act="/stock/check">conferir baús</button>
+        <button data-act="/action/home">voltar pra base</button>
+        <button data-act="/away" data-confirm="tirar o bot do servidor por 10 min?">sair 10 min</button>
+        <button data-act="/stop" data-confirm="reiniciar o agente? volta sozinho em ~10 s">reiniciar</button>
+      </div>
+      <p class="note" id="actNote" role="status"></p>
+    </section>
+    <section>
+      <h2>Missão <span id="phase">-</span></h2>
+      <ol class="steps" id="steps"></ol>
+    </section>
+    <section>
+      <h2>Plano da IA <span id="planAt"></span></h2>
+      <form class="ask" id="planForm">
+        <label for="q" class="sr">pergunta opcional</label>
+        <input id="q" name="q" maxlength="200" placeholder="pergunta opcional (ex.: como escalar as esmeraldas?)" autocomplete="off">
+        <button type="submit" id="planBtn">pedir plano</button>
+      </form>
+      <div class="plan" id="plan">peça um plano para ver o que a ia pretende fazer.</div>
+    </section>
+    <details class="log">
+      <summary>Log técnico <span id="held"></span></summary>
+      <div class="scroll" id="log"></div>
+    </details>
+  </aside>
+</main>
+<script>
+const $ = (id) => document.getElementById(id)
+const ctx = $('map').getContext('2d')
+let paused = false
+
+function clock (t) {
+  if (t == null) return '-'
+  const h = Math.floor((t / 1000 + 6) % 24), m = Math.floor((t % 1000) * 0.06)
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')
+}
+function setBar (id, v, max) {
+  const el = $(id); el.firstElementChild.style.width = Math.max(0, Math.min(100, v / max * 100)) + '%'
+  el.classList.toggle('low', v / max < 0.35)
+}
+function shade (hex, k) {
+  const n = parseInt(hex.slice(1), 16)
+  const f = (c) => Math.max(0, Math.min(255, Math.round(c * k)))
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`
+}
+const MARK = { player: '#6cb6ff', hostile: '#ff5a6a', villager: '#35d07f', item: '#e7d27a', mob: '#9aa39a' }
+
+function drawMap (d) {
+  const { r, palette, cells } = d.map
+  const size = r * 2, px = 512 / size
+  ctx.fillStyle = '#0b0d0c'; ctx.fillRect(0, 0, 512, 512)
+  for (let i = 0; i < cells.length; i++) {
+    const v = cells[i]; if (v < 0) continue
+    const c = palette[Math.floor(v / 64)], h = (v % 64) - 32
+    ctx.fillStyle = shade(c, 0.78 + Math.max(-10, Math.min(10, h)) * 0.028)
+    ctx.fillRect((i % size) * px, Math.floor(i / size) * px, px + 0.5, px + 0.5)
+  }
+  for (const e of d.entities || []) {
+    ctx.fillStyle = MARK[e.kind]; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.arc((e.x + r) * px, (e.z + r) * px, e.kind === 'item' ? 3 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  }
+  // bot: seta na direção do olhar (yaw 0 = sul/+z no Minecraft)
+  const cx = r * px, cy = r * px, a = -d.yaw
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(a + Math.PI)
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2
+  ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(7, 8); ctx.lineTo(0, 4); ctx.lineTo(-7, 8); ctx.closePath(); ctx.stroke(); ctx.fill()
+  ctx.restore()
+}
+
+function render (d) {
+  const on = d.online
+  $('dot').className = 'dot ' + (on ? 'on' : 'off')
+  $('conn').textContent = on ? (d.paused ? 'online · pausado' : 'online') : 'offline'
+  paused = !!d.paused
+  $('toggle').disabled = false
+  $('toggle').textContent = paused ? 'continuar' : 'pausar'
+  $('toggle').className = paused ? 'primary' : ''
+  const cur = (d.steps || []).find(s => s.current)
+  $('now').innerHTML = d.paused ? 'pausado' : (cur ? 'agora: <b>' + cur.desc + '</b>' : (d.phase || '-'))
+  $('phase').textContent = d.phase || '-'
+  $('hp').textContent = d.health != null ? String(Math.round(d.health)) : '-'
+  $('food').textContent = d.food != null ? d.food + ' / 20' : '-'
+  setBar('hpBar', d.health || 0, Math.max(20, d.health || 0)); setBar('foodBar', d.food || 0, 20)
+  $('em').textContent = (d.stats && d.stats.emeraldsEarned) || 0
+  $('clock').textContent = clock(d.time) + ' · ' + (d.dimension || '-')
+  $('coords').textContent = d.pos ? `x ${d.pos.x}  y ${d.pos.y}  z ${d.pos.z}` : '-'
+  $('held').textContent = d.held ? 'na mão: ' + d.held : ''
+  $('steps').innerHTML = (d.steps || []).map(s => `<li class="${s.current ? 'cur' : (s.done ? 'done' : '')}">${s.desc}</li>`).join('') || '<li>-</li>'
+  renderNow(d)
+  const box = $('log'), stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 8
+  box.innerHTML = (d.log || []).map(l => `<p class="${l.level}"><time>${new Date(l.t).toLocaleTimeString('pt-BR')}</time>${l.msg.replace(/</g, '&lt;')}</p>`).join('')
+  if (stick) box.scrollTop = box.scrollHeight
+  $('mapEmpty').style.display = d.map ? 'none' : 'grid'
+  if (d.map) drawMap(d)
+}
+
+// ---- agora: o que faz, por quê, túmulos e linha do tempo
+const CAUSES = [[/was shot by (\w+)/, 'flechado por $1'], [/was slain by (\w+)/, 'morto por $1'], [/drowned/, 'afogado'], [/blew up|blown up/, 'explodido'],
+  [/fell|hit the ground/, 'caiu'], [/lava|burn|flames/, 'queimado'], [/suffocat/, 'sufocado'], [/starved/, 'de fome'], [/ died$/, 'morreu']]
+const MOBS = { Zombie: 'zumbi', Skeleton: 'esqueleto', Spider: 'aranha', Creeper: 'creeper', Drowned: 'afogado', Witch: 'bruxa', Pillager: 'saqueador' }
+function plain (e) {
+  if (e.kind === 'morte') {
+    const c = CAUSES.find(([re]) => re.test(e.text))
+    return c ? 'morreu: ' + e.text.match(c[0])[0].replace(c[0], c[1]).replace(/\b(Zombie|Skeleton|Spider|Creeper|Drowned|Witch|Pillager)\b/, m => MOBS[m]) : e.text
+  }
+  return e.text.replace(/^TÚMULOS » /, '')
+}
+function since (t) {
+  const m = Math.round((Date.now() - t) / 60000)
+  return m < 1 ? 'agora' : m < 60 ? m + ' min' : m < 1440 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' d'
+}
+let lastEv = ''
+function renderNow (d) {
+  const cur = (d.steps || []).find(s => s.current)
+  const box = $('doing').parentElement
+  let main, why = ''
+  if (d.offline) {
+    main = 'fora do servidor'
+    why = `${d.offline.why} · volta em ${Math.max(1, Math.round((d.offline.until - Date.now()) / 60000))} min`
+  } else if (!d.online) {
+    main = 'conectando…'
+  } else if (d.paused) {
+    main = 'pausado'; why = 'aperte continuar para ele seguir'
+  } else {
+    main = cur ? cur.desc : (d.phase || '-')
+    const steps = d.steps || []
+    const i = steps.findIndex(s => s.current)
+    why = d.waitReason ? 'esperando: ' + d.waitReason : (i >= 0 ? `etapa ${i + 1} de ${steps.length} da missão` : '')
+  }
+  box.classList.toggle('away', !!d.offline)
+  $('doing').textContent = main
+  $('why').textContent = why
+  const g = d.graves || { pending: [], owner: [] }
+  $('graves').hidden = !g.pending.length && !g.owner.length
+  $('graves').innerHTML = g.pending.map(x => `<div><b>túmulo pendente</b> em ${x.x} ${x.y} ${x.z} · some em ${Math.floor(x.left / 60)}h${String(x.left % 60).padStart(2, '0')} · tentativa ${x.tries}/6</div>`).join('') +
+    g.owner.map(x => `<div class="owner"><b>${x.abandoned ? 'deixado' : 'pra você pegar'}</b> ${x.abandoned ? '(longe, só itens comuns)' : '(o bot não alcança)'}: ${x.x} ${x.y} ${x.z}</div>`).join('')
+  const ev = (d.events || []).slice().reverse()
+  const sig = ev.length ? ev[0].t + ':' + ev.length : ''
+  $('evCount').textContent = d.deaths ? `${d.deaths} mortes no total` : ''
+  if (sig === lastEv) return
+  lastEv = sig
+  $('events').innerHTML = ev.map(e => `<li><time>${since(e.t)}</time><span class="kind ${e.kind}">${e.kind}</span><span>${esc(plain(e))}${e.n > 1 ? `<span class="n">×${e.n}</span>` : ''}</span></li>`).join('') || '<li class="blank">ainda sem eventos</li>'
+  if (d.goal) $('goalNow').textContent = 'objetivo atual: ' + d.goal
+}
+
+async function tick () {
+  try {
+    const r = await fetch('/view', { cache: 'no-store' })
+    render(await r.json())
+  } catch {
+    $('dot').className = 'dot off'; $('conn').textContent = 'agente não está rodando (start.bat)'
+    $('toggle').disabled = true
+  }
+  setTimeout(tick, 1000)
+}
+$('toggle').addEventListener('click', async () => {
+  $('toggle').disabled = true
+  await fetch(paused ? '/resume' : '/pause', { method: 'POST' }).catch(() => {})
+})
+$('planForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault()
+  const btn = $('planBtn'), out = $('plan')
+  btn.disabled = true; btn.textContent = 'pensando…'
+  out.className = 'plan'; out.textContent = 'consultando a ia (leva uns segundos)…'
+  try {
+    const r = await fetch('/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: $('q').value }) })
+    const p = await r.json()
+    out.textContent = (p.text || p.error || 'sem resposta').replace(/\*\*/g, '')
+    out.className = 'plan ready'
+    $('planAt').textContent = new Date(p.at || Date.now()).toLocaleTimeString('pt-BR')
+  } catch { out.textContent = 'agente offline' }
+  btn.disabled = false; btn.textContent = 'pedir plano'
+})
+// ---- abas
+const TABS = [['tabNow', 'paneNow'], ['tabMap', 'paneMap'], ['tabStock', 'paneStock'], ['tabChat', 'paneChat']]
+function show (which) {
+  for (const [tab, pane] of TABS) {
+    const on = tab === which
+    $(tab).setAttribute('aria-selected', String(on)); $(pane).hidden = !on
+  }
+  if (which === 'tabStock') loadStock()
+  try { localStorage.setItem('tab', which) } catch {}
+}
+for (const [tab] of TABS) $(tab).addEventListener('click', () => show(tab))
+try { const t = localStorage.getItem('tab'); if (TABS.some(([x]) => x === t)) show(t) } catch {}
+
+// ---- instruir
+$('goalForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault()
+  const goal = $('goal').value.trim()
+  await fetch('/goal', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ goal }) }).catch(() => {})
+  $('goalNow').textContent = goal ? 'objetivo atual: ' + goal : 'sem objetivo manual: segue a missão.'
+  $('goal').value = ''
+})
+for (const b of document.querySelectorAll('[data-act]')) {
+  b.addEventListener('click', async () => {
+    if (b.dataset.confirm && !confirm(b.dataset.confirm)) return
+    b.disabled = true
+    try {
+      const r = await (await fetch(b.dataset.act, { method: 'POST' })).json()
+      $('actNote').textContent = r.motivo || (r.ok ? 'feito' : 'não deu agora')
+    } catch { $('actNote').textContent = 'agente reiniciando…' }
+    setTimeout(() => { b.disabled = false }, 3000)
+  })
+}
+
+// ---- estoque
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const nice = (n) => n.replace(/_/g, ' ')
+const ORDER = ['valiosos', 'armadura', 'ferramentas e armas', 'comida', 'construção do procriador', 'blocos', 'outros']
+let stock = null
+function ago (iso) {
+  if (!iso) return 'nunca conferido'
+  const m = Math.round((Date.now() - new Date(iso)) / 60000)
+  return m < 1 ? 'visto agora' : m < 60 ? `visto há ${m} min` : m < 1440 ? `visto há ${Math.round(m / 60)} h` : `visto há ${Math.round(m / 1440)} d`
+}
+function renderStock () {
+  const d = stock; if (!d) return
+  const sum = (k) => d.rows.reduce((n, r) => n + r[k], 0)
+  $('stSlots').textContent = d.slots ? `${d.slots.total - d.slots.used} de ${d.slots.total}` : '-'
+  if (d.slots) setBar('stSlotsBar', d.slots.total - d.slots.used, d.slots.total)
+  $('stInv').textContent = sum('inv'); $('stStored').textContent = sum('stored'); $('stChests').textContent = d.chests.length
+  $('stAt').textContent = d.online ? 'ao vivo' : 'bot offline'
+  const q = $('stFind').value.trim().toLowerCase().replace(/\s+/g, '_')
+  const rows = d.rows.filter(r => !q || r.name.includes(q))
+  const groups = ORDER.map(c => [c, rows.filter(r => r.cat === c)]).filter(([, rs]) => rs.length)
+  const cell = (v, cls = '') => `<td class="n ${cls}${v ? '' : ' zero'}">${v || '–'}</td>`
+  $('stock').innerHTML = groups.map(([c, rs]) => `<div class="cat"><h3>${c}<span>${rs.reduce((n, r) => n + r.all, 0)}</span></h3>
+    <table><thead><tr><th scope="col">item</th><th scope="col">mochila</th><th scope="col">baú</th><th scope="col">total</th></tr></thead><tbody>${rs.map(r =>
+      `<tr><td>${esc(nice(r.name))}${r.worn ? '<span class="tag">vestido</span>' : ''}</td>${cell(r.inv)}${cell(r.stored)}${cell(r.all, 'all')}</tr>`).join('')}</tbody></table></div>`).join('') ||
+    `<p class="blank">${q ? 'nenhum item com esse nome' : (d.online ? 'nada no estoque' : 'bot offline: só os baús registrados aparecem')}</p>`
+  $('chests').innerHTML = '<h3>Baús</h3>' + (d.chests.map(c => {
+    const old = c.seenAt && Date.now() - new Date(c.seenAt) > 6 * 3600000
+    return `<div class="chest"><b>${esc(c.label)}</b><span class="age${old ? ' old' : ''}">${ago(c.seenAt)}</span>
+      <span class="meta">x ${c.pos[0]} y ${c.pos[1]} z ${c.pos[2]}</span><span class="meta">${c.count} itens · ${c.kinds} tipos</span></div>`
+  }).join('') || '<p class="blank">nenhum baú conferido ainda. use conferir baús ou espere o bot abrir um.</p>')
+}
+async function loadStock () {
+  try { stock = await (await fetch('/stock', { cache: 'no-store' })).json(); renderStock() } catch {}
+}
+$('stFind').addEventListener('input', renderStock)
+$('stCheck').addEventListener('click', async () => {
+  const b = $('stCheck'); b.disabled = true; b.textContent = 'pedindo…'
+  try {
+    const r = await (await fetch('/stock/check', { method: 'POST' })).json()
+    $('stNote').textContent = r.motivo || (r.ok ? 'na fila' : 'não deu')
+  } catch { $('stNote').textContent = 'agente offline' }
+  b.textContent = 'conferir baús'; setTimeout(() => { b.disabled = false }, 4000)
+})
+setInterval(() => { if (!$('paneStock').hidden) loadStock() }, 3000)
+
+// ---- chat
+async function loadChat () {
+  setTimeout(loadChat, 3000)
+  try {
+    const list = await (await fetch('/chat', { cache: 'no-store' })).json()
+    const sig = list.length + (list.length ? list[list.length - 1].at : '')
+    if (sig === loadChat.sig) return
+    loadChat.sig = sig
+    const box = $('chat'), stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 8
+    box.innerHTML = list.map(m => {
+      const t = new Date(m.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      const yes = m.score && m.score.to >= 60 && m.score.need >= 40
+      const sc = m.score ? `<span class="score${yes ? ' yes' : ''}" title="${esc(m.why || '')}">comigo ${m.score.to} · responder ${m.score.need}</span>` : ''
+      const who = m.out ? `eu → ${esc(m.to || '')}` : esc(m.from) + (m.whisper ? ' (privado)' : '')
+      return `<div class="msg${m.out ? ' out' : ''}"><div class="who"><b>${who}</b><time>${t}</time>${sc}</div><p>${esc(m.text)}</p></div>`
+    }).join('') || '<p class="blank">sem mensagens ainda</p>'
+    if (stick) box.scrollTop = box.scrollHeight
+  } catch {}
+}
+loadChat()
+tick()
+</script>
+</body>
+</html>
